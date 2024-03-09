@@ -29,14 +29,15 @@ class YouTubeUploader:
 	to extract its title, description etc"""
 
 	def __init__(self, video_path: str, metadata_json_path: Optional[str] = None,
-	             thumbnail_path: Optional[str] = None,
-	             profile_path: Optional[str] = str(Path.cwd()) + "/profile") -> None:
+			  	thumbnail_path: Optional[str] = None,
+			  	profile_path: Optional[str] = str(Path.cwd()) + "/profile",
+				headless: Optional[bool] = True) -> None:
 		self.video_path = video_path
 		self.thumbnail_path = thumbnail_path
 		self.metadata_dict = load_metadata(metadata_json_path)
-		self.browser = Firefox(profile_path=profile_path, pickle_cookies=True, full_screen=False)
+		self.browser = Firefox(profile_path=profile_path, pickle_cookies=True, full_screen=False, headless=headless)
 		self.logger = logging.getLogger(__name__)
-		self.logger.setLevel(logging.DEBUG)
+		self.logger.setLevel(logging.INFO)
 		self.__validate_inputs()
 
 		self.is_mac = False
@@ -123,34 +124,34 @@ class YouTubeUploader:
 				time.sleep(Constant.USER_WAITING_TIME)
 				uploading_status_container = self.browser.find(By.XPATH, Constant.UPLOADING_STATUS_CONTAINER)
 
-		if self.thumbnail_path is not None:
-			absolute_thumbnail_path = str(Path.cwd() / self.thumbnail_path)
-			self.browser.find(By.XPATH, Constant.INPUT_FILE_THUMBNAIL).send_keys(
-				absolute_thumbnail_path)
-			change_display = "document.getElementById('file-loader').style = 'display: block! important'"
-			self.browser.driver.execute_script(change_display)
-			self.logger.debug(
-				'Attached thumbnail {}'.format(self.thumbnail_path))
+		#if self.thumbnail_path is not None:
+		#	absolute_thumbnail_path = str(Path.cwd() / self.thumbnail_path)
+		#	self.browser.find(By.XPATH, Constant.INPUT_FILE_THUMBNAIL).send_keys(
+		#		absolute_thumbnail_path)
+		#	change_display = "document.getElementById('file-loader').style = 'display: block! important'"
+		#	self.browser.driver.execute_script(change_display)
+		#	self.logger.debug(
+		#		'Attached thumbnail {}'.format(self.thumbnail_path))
 
 		title_field, description_field = self.browser.find_all(By.ID, Constant.TEXTBOX_ID, timeout=15)
 
 		self.__write_in_field(
 			title_field, self.metadata_dict[Constant.VIDEO_TITLE], select_all=True)
-		self.logger.debug('The video title was set to \"{}\"'.format(
+		self.logger.info('The video title was set to \"{}\"'.format(
 			self.metadata_dict[Constant.VIDEO_TITLE]))
 
 		video_description = self.metadata_dict[Constant.VIDEO_DESCRIPTION]
-		video_description = video_description.replace("\n", Keys.ENTER);
+		video_description = video_description.replace("\n", Keys.ENTER)
 		if video_description:
 			self.__write_in_field(description_field, video_description, select_all=True)
 			self.logger.debug('Description filled.')
 
-		kids_section = self.browser.find(By.NAME, Constant.NOT_MADE_FOR_KIDS_LABEL)
-		kids_section.location_once_scrolled_into_view
-		time.sleep(Constant.USER_WAITING_TIME)
+		#kids_section = self.browser.find(By.NAME, Constant.NOT_MADE_FOR_KIDS_LABEL)
+		#kids_section.location_once_scrolled_into_view
+		#time.sleep(Constant.USER_WAITING_TIME)
 
-		self.browser.find(By.ID, Constant.RADIO_LABEL, kids_section).click()
-		self.logger.debug('Selected \"{}\"'.format(Constant.NOT_MADE_FOR_KIDS_LABEL))
+		#self.browser.find(By.ID, Constant.RADIO_LABEL, kids_section).click()
+		#self.logger.debug('Selected \"{}\"'.format(Constant.NOT_MADE_FOR_KIDS_LABEL))
 
 		# Playlist
 		playlist = self.metadata_dict[Constant.VIDEO_PLAYLIST]
@@ -189,18 +190,17 @@ class YouTubeUploader:
 			done_button.click()
 
 		# Advanced options
-		self.browser.find(By.ID, Constant.ADVANCED_BUTTON_ID).click()
-		self.logger.debug('Clicked MORE OPTIONS')
-		time.sleep(Constant.USER_WAITING_TIME)
+		#self.browser.find(By.ID, Constant.ADVANCED_BUTTON_ID).click()
+		#self.logger.debug('Clicked MORE OPTIONS')
+		#time.sleep(Constant.USER_WAITING_TIME)
 
 		# Tags
-		tags = self.metadata_dict[Constant.VIDEO_TAGS]
-		if tags:
-			tags_container = self.browser.find(By.ID, Constant.TAGS_CONTAINER_ID)
-			tags_field = self.browser.find(By.ID, Constant.TAGS_INPUT, tags_container)
-			self.__write_in_field(tags_field, ','.join(tags))
-			self.logger.debug('The tags were set to \"{}\"'.format(tags))
-
+		#tags = self.metadata_dict[Constant.VIDEO_TAGS]
+		#if tags:
+		#	tags_container = self.browser.find(By.ID, Constant.TAGS_CONTAINER_ID)
+		#	tags_field = self.browser.find(By.ID, Constant.TAGS_INPUT, tags_container)
+		#	self.__write_in_field(tags_field, ','.join(tags))
+		#	self.logger.debug('The tags were set to \"{}\"'.format(tags))
 
 		self.browser.find(By.ID, Constant.NEXT_BUTTON).click()
 		self.logger.debug('Clicked {} one'.format(Constant.NEXT_BUTTON))
@@ -227,18 +227,19 @@ class YouTubeUploader:
 			self.browser.find(By.XPATH, Constant.SCHEDULE_TIME).send_keys(Keys.ENTER)
 			self.logger.debug(f"Scheduled the video for {schedule}")
 		else:
-			public_main_button = self.browser.find(By.NAME, Constant.PUBLIC_BUTTON)
-			self.browser.find(By.ID, Constant.RADIO_LABEL, public_main_button).click()
-			self.logger.debug('Made the video {}'.format(Constant.PUBLIC_BUTTON))
+			# Set video visibility to unlisted by default
+			visibility_status_button = self.browser.find(By.NAME, Constant.UNLISTED_BUTTON)
+			self.browser.find(By.ID, Constant.RADIO_LABEL, visibility_status_button).click()
+			self.logger.debug('Made the video {}'.format(Constant.UNLISTED_BUTTON))
 
 		video_id = self.__get_video_id()
 
 		# Check status container and upload progress
 		uploading_status_container = self.browser.find(By.XPATH, Constant.UPLOADING_STATUS_CONTAINER)
 		while uploading_status_container is not None:
-			uploading_progress = uploading_status_container.get_attribute('value')
-			self.logger.debug('Upload video progress: {}%'.format(uploading_progress))
-			time.sleep(Constant.USER_WAITING_TIME * 5)
+			#uploading_progress = uploading_status_container.get_attribute('value')
+			#self.logger.debug('Upload video progress: {}%'.format(uploading_progress))
+			time.sleep(Constant.USER_WAITING_TIME * 3)
 			uploading_status_container = self.browser.find(By.XPATH, Constant.UPLOADING_STATUS_CONTAINER)
 
 		self.logger.debug('Upload container gone.')
@@ -253,8 +254,8 @@ class YouTubeUploader:
 			return False, None
 
 		done_button.click()
-		self.logger.debug(
-			"Published the video with video_id = {}".format(video_id))
+		self.logger.info(
+			"Video uploaded with video_id = {}".format(video_id))
 		time.sleep(Constant.USER_WAITING_TIME)
 		self.browser.get(Constant.YOUTUBE_URL)
 		self.__quit()
