@@ -112,7 +112,7 @@ parser = argparse.ArgumentParser()
 #Add the arguments to the parser
 parser.add_argument("--json", help="Ruta al archivo JSON")
 parser.add_argument("--upload", help="Indica si solo se debe ejecutar el proceso de subida de videos", action="store_true")
-parser.add_argument("--noheadless", help="Indica que Firefox no se ejecute en modo headless" , action="store_false")
+parser.add_argument("--noheadless", help="Indica que Firefox no se debe ejecutar en modo headless" , action="store_false")
 
 #Parse the arguments
 args = parser.parse_args()
@@ -129,7 +129,7 @@ headless_mode = args.noheadless
 #Check if the json file path or the upload flag was provided
 if not json_file_path and not upload:
     print(colorama.Fore.CYAN + 'Debe proporcionar la ruta al archivo JSON o usar el argumento --upload.')
-    print('Ejemplo: python main.py --json "C:\\Users\\user\\Desktop\\clases.json"')
+    print('Ejemplo: python main.py --json "C:\\Users\\user\\Desktop\\videos.json"')
     exit()
 
 #Check if PROFILE_PATH exists
@@ -164,7 +164,7 @@ if not upload:
             #Delete all files and folders in the videos folder
             delete_all_files_and_folders(VIDEOS_FOLDER_PATH)
 
-    #Start the timer
+    #Start the timer to measure the elapsed time of the whole process
     time_start = time.time()
 
     print(colorama.Fore.MAGENTA + '************************************************')
@@ -197,7 +197,15 @@ if not upload:
             write_json(metadata_path, metadata_content)
 
 else:
-    #Start the timer
+    #Check if the videos folder exists
+    if not os.path.exists(VIDEOS_FOLDER_PATH):
+        #Create the videos folder
+        os.makedirs(VIDEOS_FOLDER_PATH)
+        print(colorama.Fore.YELLOW + 'AVISO: La carpeta de videos no existe. Se creará la carpeta vacía.')
+        print('Compruebe que esta contenga los videos a subir antes de ejecutar el script nuevamente.')
+        exit()
+
+    #Start the timer to measure the elapsed time of the upload process
     time_start = time.time()
 
 
@@ -205,6 +213,11 @@ else:
 
 #List all folders in the videos folder
 video_folders = list_folders(VIDEOS_FOLDER_PATH)
+
+#Check if there are no video folders in the videos folder
+if len(video_folders) == 0:
+    print(colorama.Fore.YELLOW + 'AVISO: No hay videos para subir en la carpeta de videos.')
+    exit()
 
 #Sort the video folders by name in ascending order
 video_folders.sort()
