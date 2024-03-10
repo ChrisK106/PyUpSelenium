@@ -36,7 +36,7 @@ class YouTubeUploader:
 		self.thumbnail_path = thumbnail_path
 		self.metadata_dict = load_metadata(metadata_json_path)
 		self.browser = Firefox(profile_path=profile_path, pickle_cookies=True, full_screen=False, headless=headless)
-		self.logger = logging.getLogger(__name__)
+		self.logger = logging.getLogger('YT-Uploader')
 		self.logger.setLevel(logging.INFO)
 		self.__validate_inputs()
 
