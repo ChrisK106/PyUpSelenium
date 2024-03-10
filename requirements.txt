@@ -1,2 +1,3 @@
 selenium<4
 selenium-firefox==1.0.35
+colorama
