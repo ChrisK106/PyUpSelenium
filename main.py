@@ -80,9 +80,8 @@ def get_file_name(url):
         return os.path.basename(urlparse(url).path)
 
 #Download a file from a url and save it in videos folder
-def download_file(url):
-    """Descarga un archivo de la URL dada y lo guarda en la carpeta de videos."""
-    file_name = get_file_name(url)
+def download_file(url, file_name):
+    """Descarga un archivo de una URL y lo guarda en la carpeta de videos."""
     file_path = os.path.join(VIDEOS_FOLDER_PATH, os.path.splitext(file_name)[0], file_name)
     file_dir = os.path.dirname(file_path)
 
@@ -92,7 +91,6 @@ def download_file(url):
     r = requests.get(url)
     with open(file_path, 'wb') as file:
         file.write(r.content)
-    return file_name
 
 #Format a string as title, keeping some words in lowercase and others in uppercase
 def format_string_as_title(str):
@@ -152,17 +150,17 @@ if not upload:
     if not os.path.exists(VIDEOS_FOLDER_PATH):
         #Create the videos folder
         os.makedirs(VIDEOS_FOLDER_PATH)
-    else:
+    #else:
         #Check if the videos folder is empty
-        if len(os.listdir(VIDEOS_FOLDER_PATH)) > 0:
+        #if len(os.listdir(VIDEOS_FOLDER_PATH)) > 0:
             #Ask for confirmation to delete all files and folders in the videos folder
-            print(colorama.Fore.YELLOW + 'AVISO: Se eliminará todo el contenido de la carpeta videos.')
-            confirm = input('¿Desea continuar? (s/n): ')
-            if confirm.lower() != 's':
-                exit()
+        #    print(colorama.Fore.YELLOW + 'AVISO: Se eliminará todo el contenido de la carpeta videos.')
+        #    confirm = input('¿Desea continuar? (s/n): ')
+        #    if confirm.lower() != 's':
+        #        exit()
             
             #Delete all files and folders in the videos folder
-            delete_all_files_and_folders(VIDEOS_FOLDER_PATH)
+        #    delete_all_files_and_folders(VIDEOS_FOLDER_PATH)
 
     #Start the timer to measure the elapsed time of the whole process
     time_start = time.time()
@@ -186,14 +184,22 @@ if not upload:
         for video in videos:
             downloadUrl = video['downloadUrl']
 
-            downloaded_file = download_file(downloadUrl)
-            print(colorama.Fore.GREEN + 'Descargado: ' + downloaded_file)
+            #Get the file name from the download url
+            file_name = get_file_name(downloadUrl)
+
+            #Check if the video is already downloaded in the videos folder
+            if os.path.exists(os.path.join(VIDEOS_FOLDER_PATH, os.path.splitext(file_name)[0], file_name)):
+                print(colorama.Fore.YELLOW + 'AVISO: Omitiendo video ya descargado. ' + file_name)
+                continue
+
+            download_file(downloadUrl, file_name)
+            print(colorama.Fore.GREEN + 'Descargado: ' + file_name)
             
             formatted_title = format_string_as_title(subjectName)
             metadata_content = {"title": formatted_title + " " + PERIOD_STR + " S00", 
                                 "description": subjectName + "\n" + subjectId + "\n" + teacher + "\n" + date}
             
-            metadata_path = os.path.join(VIDEOS_FOLDER_PATH, os.path.splitext(downloaded_file)[0], 'metadata.json')
+            metadata_path = os.path.join(VIDEOS_FOLDER_PATH, os.path.splitext(file_name)[0], 'metadata.json')
             write_json(metadata_path, metadata_content)
 
 else:
