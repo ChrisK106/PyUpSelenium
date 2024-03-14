@@ -1,4 +1,5 @@
 [![CodeQL](https://github.com/ChrisK106/PyUpSelenium/actions/workflows/github-code-scanning/codeql/badge.svg)](https://github.com/ChrisK106/PyUpSelenium/actions/workflows/github-code-scanning/codeql)
+[![pages-build-deployment](https://github.com/ChrisK106/PyUpSelenium/actions/workflows/pages/pages-build-deployment/badge.svg)](https://github.com/ChrisK106/PyUpSelenium/actions/workflows/pages/pages-build-deployment)
 
 > [!NOTE]  
 > This is a fork from [youtube_uploader_selenium](https://github.com/linouk23/youtube_uploader_selenium) customized for my needs.
