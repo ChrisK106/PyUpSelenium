@@ -39,6 +39,7 @@ def list_folders(folder_path):
     folders = [elem for elem in elements if os.path.isdir(os.path.join(folder_path, elem))]
     return folders
 
+#Delete all files and folders in the directory
 def delete_all_files_and_folders(folder_path):
     """Elimina todos los archivos y carpetas en el directorio dado."""
     for filename in os.listdir(folder_path):
@@ -65,32 +66,30 @@ def write_json(file_path, data):
         json.dump(data, file)
     return file_path
 
-#Get the file name from the url
-def get_file_name(url):
-    """Obtiene el nombre del archivo de la URL dada."""
-    r = requests.get(url, stream=True)
-    if 'Content-Disposition' in r.headers:
-        content_disposition = r.headers['Content-Disposition']
-        parts = content_disposition.split(';')
-        for part in parts:
-            if 'filename=' in part:
-                file_name = part.split('=')[1]
-                return file_name.strip('\"')
-    else:
-        return os.path.basename(urlparse(url).path)
+#Get the file name from the last part of the url
+def get_file_name_from_url(url):
+    """Obtiene el nombre del archivo de la última parte de la URL dada."""
+    return os.path.basename(urlparse(url).path)
 
 #Download a file from a url and save it in videos folder
 def download_file(url, file_name):
-    """Descarga un archivo de una URL y lo guarda en la carpeta de videos."""
+    """Descarga un archivo de una URL y lo guarda en la carpeta de videos. Si hay un error al descargar, devuelve False. Si se descarga correctamente, devuelve True."""
     file_path = os.path.join(VIDEOS_FOLDER_PATH, os.path.splitext(file_name)[0], file_name)
     file_dir = os.path.dirname(file_path)
 
-    if not os.path.exists(file_dir):
-        os.makedirs(file_dir)
+    try:
+        if not os.path.exists(file_dir):
+            os.makedirs(file_dir)
 
-    r = requests.get(url)
-    with open(file_path, 'wb') as file:
-        file.write(r.content)
+        r = requests.get(url)
+        with open(file_path, 'wb') as file:
+            file.write(r.content)
+
+        return True
+
+    except Exception as e:
+        print(colorama.Fore.RED + f'ERROR al descargar {file_name}. Razón: {e}')
+        return False
 
 #Format a string as title, keeping some words in lowercase and others in uppercase
 def format_string_as_title(str):
@@ -101,6 +100,15 @@ def format_string_as_title(str):
                        word for i, word in enumerate(words)]
     return " ".join(formatted_words)
 
+#Calculate the elapsed time
+def calculate_elapsed_time(start, end):
+    """Calcula el tiempo transcurrido entre dos marcas de tiempo."""
+    elapsed_time = end - start
+    hours = int(elapsed_time // 3600)
+    minutes = int((elapsed_time % 3600) // 60)
+    seconds = int(elapsed_time % 60)
+    return hours, minutes, seconds
+
 
 #---> MAIN PROCESS STARTS HERE
 
@@ -109,14 +117,18 @@ parser = argparse.ArgumentParser()
 
 #Add the arguments to the parser
 parser.add_argument("--json", help="Ruta al archivo JSON")
+parser.add_argument("--download", help="Indica si solo se debe ejecutar el proceso de descarga de videos", action="store_true")
 parser.add_argument("--upload", help="Indica si solo se debe ejecutar el proceso de subida de videos", action="store_true")
-parser.add_argument("--noheadless", help="Indica que Firefox no se debe ejecutar en modo headless" , action="store_false")
+parser.add_argument("--noheadless", help="Indica que Firefox no se debe ejecutar en modo headless", action="store_false")
 
 #Parse the arguments
 args = parser.parse_args()
 
 #Get the json file path from the arguments
 json_file_path = args.json
+
+#Get the download flag from the arguments (False by default)
+download = args.download
 
 #Get the upload flag from the arguments (False by default)
 upload = args.upload
@@ -135,7 +147,8 @@ if not os.path.exists(PROFILE_PATH):
     print(colorama.Fore.YELLOW + 'El perfil de Firefox no existe. Verifique el archivo config.ini.')
     exit()
 
-#If the upload flag was not provided, execute the download process first
+
+#If the upload flag was not provided, execute the DOWNLOAD process first
 if not upload:
 
     #Check if the json file exists
@@ -146,29 +159,22 @@ if not upload:
     #Read the json file
     json_data = read_json_file(json_file_path)
     
-    #Check if the videos folder exists
+    #Check if the videos folder exists, if not, create it
     if not os.path.exists(VIDEOS_FOLDER_PATH):
         #Create the videos folder
-        os.makedirs(VIDEOS_FOLDER_PATH)
-    #else:
-        #Check if the videos folder is empty
-        #if len(os.listdir(VIDEOS_FOLDER_PATH)) > 0:
-            #Ask for confirmation to delete all files and folders in the videos folder
-        #    print(colorama.Fore.YELLOW + 'AVISO: Se eliminará todo el contenido de la carpeta videos.')
-        #    confirm = input('¿Desea continuar? (s/n): ')
-        #    if confirm.lower() != 's':
-        #        exit()
-            
-            #Delete all files and folders in the videos folder
-        #    delete_all_files_and_folders(VIDEOS_FOLDER_PATH)
+        print(colorama.Fore.YELLOW + 'AVISO: La carpeta de videos no existe. Se creará la carpeta vacía.')
+        os.makedirs(VIDEOS_FOLDER_PATH)     
 
     #Start the timer to measure the elapsed time of the whole process
     time_start = time.time()
 
+    #List to store the videos that were not downloaded due to an error
+    not_downloaded_videos = []
+
     print(colorama.Fore.MAGENTA + '************************************************')
     print(colorama.Fore.WHITE + '---> Descargando videos...')
 
-    #Iterate over the json data
+    #Iterate over the JSON data to download the videos
     for index, rec in enumerate(json_data):
         date = rec['date']
         subjectId = rec['subjectId']
@@ -184,24 +190,78 @@ if not upload:
         for video in videos:
             downloadUrl = video['downloadUrl']
 
-            #Get the file name from the download url
-            file_name = get_file_name(downloadUrl)
+            #Get the file name from the video url
+            file_name = get_file_name_from_url(downloadUrl)
 
             #Check if the video is already downloaded in the videos folder
             if os.path.exists(os.path.join(VIDEOS_FOLDER_PATH, os.path.splitext(file_name)[0], file_name)):
                 print(colorama.Fore.YELLOW + 'AVISO: Omitiendo video ya descargado. ' + file_name)
                 continue
 
-            download_file(downloadUrl, file_name)
-            print(colorama.Fore.GREEN + 'Descargado: ' + file_name)
+            #Download the video
+            if download_file(downloadUrl, file_name):
+                print(colorama.Fore.GREEN + 'Descargado: ' + file_name)
+            else:
+                #Add the current video to the Not downloaded videos list
+                not_downloaded_videos.append(downloadUrl)
             
+            #Format the subject name as title
             formatted_title = format_string_as_title(subjectName)
+            
+            #Create the metadata content
             metadata_content = {"title": formatted_title + " " + PERIOD_STR + " S00", 
                                 "description": subjectName + "\n" + subjectId + "\n" + teacher + "\n" + date}
             
+            #Get the metadata path
             metadata_path = os.path.join(VIDEOS_FOLDER_PATH, os.path.splitext(file_name)[0], 'metadata.json')
+            
+            #Write the metadata content to a json file
             write_json(metadata_path, metadata_content)
 
+
+    #Check if there are videos that were not downloaded due to an error and try to download them again
+    if len(not_downloaded_videos) > 0:
+        
+        failed_download_retries = []
+
+        print(colorama.Fore.MAGENTA + '************************************************')
+        print(colorama.Fore.YELLOW + '---> Reintentando descarga de videos...')
+
+        #Iterate over the Not downloaded videos list
+        for index, downloadUrl in enumerate(not_downloaded_videos):
+
+            print(colorama.Fore.MAGENTA + '************************************************')
+            print(colorama.Fore.GREEN + 'Video ' + str(index + 1) + ' de ' + str(len(not_downloaded_videos)))
+            
+            #Get the file name from the download url
+            file_name = get_file_name_from_url(downloadUrl)
+
+            #Try to download the video
+            if download_file(downloadUrl, file_name):
+                print(colorama.Fore.GREEN + 'Descargado: ' + file_name)
+            else:
+                print(colorama.Fore.RED + 'ERROR reintentando descargar: ' + file_name)
+
+                #Add the current video and the following videos to the failed download retries list  
+                failed_download_retries.append(downloadUrl)
+                failed_download_retries.extend(not_downloaded_videos[index + 1:])
+
+                #Delete each video folder in the failed download retries list
+                for downloadUrl in failed_download_retries:
+                    file_name = get_file_name_from_url(downloadUrl)
+                    folder_path = os.path.join(VIDEOS_FOLDER_PATH, os.path.splitext(file_name)[0])
+                    delete_all_files_and_folders(folder_path)
+                    os.rmdir(folder_path)
+
+                #Calculate the elapsed time and exit the script
+                print(colorama.Fore.MAGENTA + '************************************************')
+                print(colorama.Fore.WHITE + '---> Proceso finalizado')
+                time_end = time.time()
+                hours, minutes, seconds = calculate_elapsed_time(time_start, time_end)
+                print(colorama.Fore.CYAN + f'Tiempo total transcurrido: {hours} horas, {minutes} minutos y {seconds} segundos')
+                print(colorama.Fore.MAGENTA + '************************************************')
+                exit()
+            
 else:
     #Check if the videos folder exists
     if not os.path.exists(VIDEOS_FOLDER_PATH):
@@ -211,11 +271,28 @@ else:
         print('Compruebe que esta contenga los videos a subir antes de ejecutar el script nuevamente.')
         exit()
 
-    #Start the timer to measure the elapsed time of the upload process
+    #Start the timer to measure the elapsed time of the UPLOAD process
     time_start = time.time()
 
 
-#Download process finishes and the upload process starts here
+#Check if the download flag was provided to stop the script here
+if download:
+    print(colorama.Fore.MAGENTA + '************************************************')
+    print(colorama.Fore.WHITE + '---> Proceso de descarga finalizado')
+
+    #Stop the timer
+    time_end = time.time()
+
+    #Calculate the elapsed time
+    hours, minutes, seconds = calculate_elapsed_time(time_start, time_end)
+    
+    #Print the elapsed time
+    print(colorama.Fore.CYAN + f'Tiempo total transcurrido: {hours} horas, {minutes} minutos y {seconds} segundos')
+    print(colorama.Fore.MAGENTA + '************************************************')
+    exit()
+
+
+#Download process finishes and the UPLOAD process starts here
 
 #List all folders in the videos folder
 video_folders = list_folders(VIDEOS_FOLDER_PATH)
@@ -289,20 +366,16 @@ if len(pending_videos) > 0:
     print(colorama.Fore.WHITE + '---> ' + str(len(pending_videos)) + ' Videos pendientes para subir:')
     print(colorama.Fore.YELLOW + str(pending_videos))
 
+print(colorama.Fore.MAGENTA + '************************************************')
+print(colorama.Fore.WHITE + '---> Proceso finalizado')
+
 #Stop the timer
 time_end = time.time()
 
 #Calculate the elapsed time
-elapsed_time = time_end - time_start
-
-#Calculate the hours, minutes and seconds
-hours = int(elapsed_time // 3600)
-minutes = int((elapsed_time % 3600) // 60)
-seconds = int(elapsed_time % 60)
-
-print(colorama.Fore.MAGENTA + '************************************************')
-print(colorama.Fore.WHITE + '---> Proceso finalizado')
+hours, minutes, seconds = calculate_elapsed_time(time_start, time_end)
 
 #Print the elapsed time
 print(colorama.Fore.CYAN + f'Tiempo total transcurrido: {hours} horas, {minutes} minutos y {seconds} segundos')
 print(colorama.Fore.MAGENTA + '************************************************')
+exit()
