@@ -207,10 +207,19 @@ if not upload:
             
             #Format the subject name as title
             formatted_title = format_string_as_title(subjectName)
+
+            #Calculate the session number based on the index in the json_data
+            session_number = len(json_data) - index
+            
+            #Format the session number as S00, S01, S02, etc.
+            if session_number < 10:
+                session_number = f'S0{session_number}'
+            else:
+                session_number = f'S{session_number}'
             
             #Create the metadata content
-            metadata_content = {"title": formatted_title + " " + PERIOD_STR + " S00", 
-                                "description": subjectName + "\n" + subjectId + "\n" + teacher + "\n" + date}
+            metadata_content = {"title": formatted_title + " " + PERIOD_STR + " " + session_number, 
+                                "description": formatted_title + "\n" + subjectId + "\n" + teacher + "\n" + date}
             
             #Get the metadata path
             metadata_path = os.path.join(VIDEOS_FOLDER_PATH, os.path.splitext(file_name)[0], 'metadata.json')
@@ -310,10 +319,6 @@ uploaded_videos = []
 
 #List to store the pending videos to upload in case of an error
 pending_videos = []
-
-#Check if the cookies file not exists to desactivate the headless mode
-if not os.path.exists('youtube.com.pkl'):
-    headless_mode = False
 
 print(colorama.Fore.MAGENTA + '************************************************')
 print(colorama.Fore.WHITE + '---> Subiendo videos a Youtube...')

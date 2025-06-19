@@ -31,7 +31,7 @@ class YouTubeUploader:
 	def __init__(self, video_path: str, metadata_json_path: Optional[str] = None,
 			  	thumbnail_path: Optional[str] = None,
 			  	profile_path: Optional[str] = str(Path.cwd()) + "/profile",
-				headless: Optional[bool] = True) -> None:
+				headless: bool = True) -> None:
 		self.video_path = video_path
 		self.thumbnail_path = thumbnail_path
 		self.metadata_dict = load_metadata(metadata_json_path)
