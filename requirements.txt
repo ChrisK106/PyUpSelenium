@@ -1,4 +1,4 @@
-selenium<4
+selenium<5
 selenium-firefox==1.0.35
 requests
 colorama
